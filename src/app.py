@@ -1,6 +1,7 @@
 import streamlit as st
 import numpy as np
 from PIL import Image
+from io import BytesIO
 
 # App Title and Description
 st.title('Transform By Gaming')
@@ -55,7 +56,20 @@ if uploaded_file:
     with save_col:
         save_button = st.button('Save Image To The Collection', use_container_width=True)
     with download_col:
-        download_button = st.button('Download Image', use_container_width=True)
+        if st.session_state.current_image is not None:
+            img = Image.fromarray(st.session_state.current_image.astype('uint8'), 'RGB')
+            buf = BytesIO()
+            img.save(buf, format='PNG')
+            byte_data = buf.getvalue()
+            filename = "transformed_image.png" if st.session_state.caption_text == "" else st.session_state.caption_text + ".png"
+            
+            st.download_button(
+                label='Download Image',
+                data=byte_data,
+                file_name=filename,
+                mime="image/png",
+                use_container_width=True
+            )
     with section_divide_slot:
         st.divider()
     with col1:
@@ -73,7 +87,8 @@ if uploaded_file:
     def update_image():
         with image_slot:
             st.image(st.session_state.current_image, st.session_state.caption_text)
-    
+
+    # Dialog to recieve rotation direction from user input
     @st.dialog("Rotate Clockwise or Counterclockwise by 90 degrees?")
     def direction():
         col1, col2 = st.columns(2)
