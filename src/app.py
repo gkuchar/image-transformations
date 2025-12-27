@@ -13,9 +13,15 @@ st.divider()
 
 col1, col2, col3, col4, col5 = st.columns(5) # Transformation Buttons
 
-# Set inital current image and caption
+# Set inital session_state variables
 if "caption_text" not in st.session_state:
     st.session_state.caption_text = ""
+
+if "rotation_direction" not in st.session_state:
+    st.session_state.rotation_direction = None
+
+if "perform_rotation" not in st.session_state:
+    st.session_state.perform_rotation = False
 
 if "current_image" not in st.session_state:
     st.session_state.current_image = None
@@ -68,14 +74,33 @@ if uploaded_file:
         with image_slot:
             st.image(st.session_state.current_image, st.session_state.caption_text)
     
+    @st.dialog("Rotate Clockwise or Counterclockwise by 90 degrees?")
+    def direction():
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            if st.button("Clockwise"):
+                st.session_state.rotation_direction = True
+                st.session_state.perform_rotation = True
+                st.rerun()
+        
+        with col2:
+            if st.button("Counterclockwise"):
+                st.session_state.rotation_direction = False
+                st.session_state.perform_rotation = True
+                st.rerun()
+    
     def stretch_vertically(image):
         pass
 
     def stretch_horizontally(image):
         pass
 
-    def rotate_image(image):
-        pass
+    def rotate_image(image, clockwise):
+        if clockwise:
+            return np.rot90(image, k=1)
+        else:
+            return np.rot90(image, k=-1)
 
     def mirror_vertically(image):
         return np.flip(image, axis=0)
@@ -85,16 +110,26 @@ if uploaded_file:
     
     # Button Logic
     if vstretch_button:
-        stretch_vertically(st.session_state.current_image)
+        st.session_state.current_image = stretch_vertically(st.session_state.current_image)
     elif hstretch_button:
-        stretch_horizontally(st.session_state.current_image)
+        st.session_state.current_image = stretch_horizontally(st.session_state.current_image)
     elif rotate_button:
-        rotate_image(st.session_state.current_image)
+        # Open dialog to get direction from user
+        direction()
+    # Check if we need to perform rotation (after dialog closes)
+    if st.session_state.perform_rotation:
+        st.session_state.current_image = rotate_image(
+            st.session_state.current_image, 
+            st.session_state.rotation_direction
+        )
+        # Clear the flags after use
+        st.session_state.rotation_direction = None
+        st.session_state.perform_rotation = False
     elif vflip_button:
         st.session_state.current_image = mirror_vertically(st.session_state.current_image)
     elif hflip_vbutton:
         st.session_state.current_image = mirror_horizontally(st.session_state.current_image)
-
+    
     # Always update image each time the script is ran
     update_image()
 
