@@ -4,11 +4,12 @@ from PIL import Image
 from io import BytesIO
 
 # App Title and Description
-st.title('Transform By Gaming')
+st.title(':yellow[5-Prong] Image Transformation')
 st.write(
-    "Upload a new image or select one from the collection to begin transforming it. "
-    "Play various games to affect the image in various ways!"
-    )
+    "Upload an image and transform it with five powerful tools: vertical stretch, "
+    "horizontal stretch, 90-degree rotation, vertical flip, and horizontal flip. "
+    "Download your transformed image or add it to The Collection when you're done!"
+)
 
 st.divider()
 
@@ -21,8 +22,20 @@ if "caption_text" not in st.session_state:
 if "rotation_direction" not in st.session_state:
     st.session_state.rotation_direction = None
 
+if "hstretch_factor" not in st.session_state:
+    st.session_state.hstretch_factor = None
+
+if "vstretch_factor" not in st.session_state:
+    st.session_state.vstretch_factor = None
+
 if "perform_rotation" not in st.session_state:
     st.session_state.perform_rotation = False
+
+if "perform_hstretch" not in st.session_state:
+    st.session_state.perform_hstretch = False
+
+if "perform_vstretch" not in st.session_state:
+    st.session_state.perform_vstretch = False
 
 if "current_image" not in st.session_state:
     st.session_state.current_image = None
@@ -38,6 +51,9 @@ uploaded_file = st.file_uploader(
     "Upload new image:",
     type=["jpg", "png", "jpeg"],
     )
+
+st.divider()
+st.subheader("The Collection")
 
 
 # Transformation and Save/Download Buttons appear once file uploaded
@@ -104,12 +120,41 @@ if uploaded_file:
                 st.session_state.rotation_direction = False
                 st.session_state.perform_rotation = True
                 st.rerun()
-    
-    def stretch_vertically(image):
-        pass
 
-    def stretch_horizontally(image):
-        pass
+    # Dialog to recieve verticle stretch magnitude from user input
+    @st.dialog("Vertical Stretch Factor")
+    def get_vstretch_factor():
+        factor = st.number_input("Enter stretch factor:", min_value=1, max_value=5, value=2)
+        if st.button("Apply"):
+            st.session_state.vstretch_factor = factor
+            st.session_state.perform_vstretch = True
+            st.rerun()
+    
+    # Dialog to recieve horizontal stretch magnitude from user input
+    @st.dialog("Horizontal Stretch Factor")
+    def get_hstretch_factor():
+        factor = st.number_input("Enter stretch factor:", min_value=1, max_value=5, value=2)
+        if st.button("Apply"):
+            st.session_state.hstretch_factor = factor
+            st.session_state.perform_hstretch = True
+            st.rerun()
+
+    # Image transormation functions
+    def stretch_vertically(image, factor=2):
+        # Check if resulting image would be too large
+        new_height = image.shape[0] * factor
+        if new_height > 10000:  # Limit to 10000 pixels
+            st.error(f"Image would be too large ({new_height} pixels tall). Maximum is 10000 pixels.")
+            return image
+        return np.repeat(image, factor, axis=0)
+
+    def stretch_horizontally(image, factor=2):
+        # Check if resulting image would be too large
+        new_width = image.shape[1] * factor
+        if new_width > 10000:  # Limit to 10000 pixels
+            st.error(f"Image would be too large ({new_width} pixels wide). Maximum is 10000 pixels.")
+            return image
+        return np.repeat(image, factor, axis=1)
 
     def rotate_image(image, clockwise):
         if clockwise:
@@ -123,11 +168,30 @@ if uploaded_file:
     def mirror_horizontally(image):
         return np.flip(image, axis=1)
     
-    # Button Logic
+    # Transformarion Button Logic
     if vstretch_button:
-        st.session_state.current_image = stretch_vertically(st.session_state.current_image)
+        # Open dialog to get verticle stretch magnitude from user
+        get_vstretch_factor()
+    # Check if we need to perform vstretch (after dialog closes)
+    if st.session_state.perform_vstretch:
+        st.session_state.current_image = stretch_vertically(
+            st.session_state.current_image, 
+            st.session_state.vstretch_factor
+        )
+        # Clear the flags after use
+        st.session_state.vstretch_factor = None
+        st.session_state.perform_vstretch = False
     elif hstretch_button:
-        st.session_state.current_image = stretch_horizontally(st.session_state.current_image)
+        # Open dialog to get horizonal stretch magnitude from user
+        get_hstretch_factor()
+    if st.session_state.perform_hstretch:
+        st.session_state.current_image = stretch_horizontally(
+            st.session_state.current_image, 
+            st.session_state.hstretch_factor
+        )
+        # Clear the flags after use
+        st.session_state.hstretch_factor = None
+        st.session_state.perform_hstretch = False
     elif rotate_button:
         # Open dialog to get direction from user
         direction()
