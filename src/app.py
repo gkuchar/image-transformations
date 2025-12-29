@@ -40,6 +40,9 @@ if "perform_vstretch" not in st.session_state:
 if "current_image" not in st.session_state:
     st.session_state.current_image = None
 
+if "collection" not in st.session_state:
+    st.session_state.collection = []
+
 image_slot = st.empty()
 caption_slot = st.empty()
 
@@ -52,28 +55,55 @@ uploaded_file = st.file_uploader(
     type=["jpg", "png", "jpeg"],
     )
 
+# Display The Collection
 st.divider()
 st.subheader("The Collection")
 
+if len(st.session_state.collection) == 0:
+    st.info("No images saved yet. Transform an image and click 'Save Image To The Collection' to add it here!")
+else:
+    st.write(f"**{len(st.session_state.collection)} image(s) in your collection**")
+    
+    # Display images in a grid (3 columns)
+    cols = st.columns(3)
+    for idx, item in enumerate(st.session_state.collection):
+        with cols[idx % 3]:
+            st.image(item["image"], caption=item["caption"], use_container_width=True)
+            if st.button(f"Load '{item['caption']}'", key=f"load_{idx}", use_container_width=True):
+                st.session_state.current_image = item["image"].copy()
+                st.session_state.caption_text = item["caption"]
+                st.success(f"Loaded '{item['caption']}' as current image!")
+                st.rerun()
 
 # Transformation and Save/Download Buttons appear once file uploaded
-if uploaded_file:
+if uploaded_file or st.session_state.current_image is not None:
     with caption_slot:
         st.session_state.caption_text = st.text_input(
-            'Give your image a caption (optional)'
+            'Give your image a caption (optional)',
+            value=st.session_state.caption_text
             )
     # Only update session image on new image uploaded
-    if "uploaded_file_id" not in st.session_state or st.session_state.uploaded_file_id != uploaded_file.file_id:
+    if uploaded_file and ("uploaded_file_id" not in st.session_state or st.session_state.uploaded_file_id != uploaded_file.file_id):
         with image_slot:
             st.image(uploaded_file, caption=st.session_state.caption_text)
             pil_image = Image.open(uploaded_file)
             st.session_state.current_image = np.array(pil_image)
             st.session_state.uploaded_file_id = uploaded_file.file_id
+    elif st.session_state.current_image is not None:
+        # Display current image if it exists (from collection or transformations)
+        with image_slot:
+            st.image(st.session_state.current_image, caption=st.session_state.caption_text)
     with save_col:
         save_button = st.button('Save Image To The Collection', use_container_width=True)
     with download_col:
         if st.session_state.current_image is not None:
-            img = Image.fromarray(st.session_state.current_image.astype('uint8'), 'RGB')
+            # Handle different image formats
+            if len(st.session_state.current_image.shape) == 2:  # Grayscale
+                img = Image.fromarray(st.session_state.current_image.astype('uint8'), 'L')
+            elif st.session_state.current_image.shape[2] == 4:  # RGBA
+                img = Image.fromarray(st.session_state.current_image.astype('uint8'), 'RGBA')
+            else:  # RGB
+                img = Image.fromarray(st.session_state.current_image.astype('uint8'), 'RGB')
             buf = BytesIO()
             img.save(buf, format='PNG')
             byte_data = buf.getvalue()
@@ -89,7 +119,7 @@ if uploaded_file:
     with section_divide_slot:
         st.divider()
     with col1:
-        vstretch_button = st.button('Verticle Stretch', use_container_width=True)
+        vstretch_button = st.button('Vertical Stretch', use_container_width=True)
     with col2:
         hstretch_button = st.button('Horizontal Stretch', use_container_width=True)
     with col3:
@@ -121,7 +151,7 @@ if uploaded_file:
                 st.session_state.perform_rotation = True
                 st.rerun()
 
-    # Dialog to recieve verticle stretch magnitude from user input
+    # Dialog to recieve vertical stretch magnitude from user input
     @st.dialog("Vertical Stretch Factor")
     def get_vstretch_factor():
         factor = st.number_input("Enter stretch factor:", min_value=1, max_value=5, value=2)
@@ -167,10 +197,25 @@ if uploaded_file:
         
     def mirror_horizontally(image):
         return np.flip(image, axis=1)
+
+    # Save Button Logic
+    if save_button:
+        if st.session_state.current_image is not None:
+            # Create a copy of the image to store in collection
+            image_copy = st.session_state.current_image.copy()
+            caption = st.session_state.caption_text if st.session_state.caption_text else f"Image {len(st.session_state.collection) + 1}"
+            
+            # Add to collection
+            st.session_state.collection.append({
+                "image": image_copy,
+                "caption": caption
+            })
+            st.success(f"Saved '{caption}' to The Collection!")
+            st.rerun()
     
     # Transformarion Button Logic
     if vstretch_button:
-        # Open dialog to get verticle stretch magnitude from user
+        # Open dialog to get vertical stretch magnitude from user
         get_vstretch_factor()
     # Check if we need to perform vstretch (after dialog closes)
     if st.session_state.perform_vstretch:
