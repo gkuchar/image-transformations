@@ -15,7 +15,7 @@ A Streamlit web application that allows users to transform images through five p
 - **Upload**: Support for JPG, PNG, and JPEG formats
 - **Download**: Save transformed images to your local machine with custom filenames
 - **Caption**: Add optional captions to your images
-- **The Collection**: Save and organize transformations in a persistent database
+- **The Collection**: Save and organize transformations in a persistent SQLite database
 
 ### Smart Features
 - Size validation to prevent memory overflow (10,000 pixel limit per dimension)
@@ -23,15 +23,19 @@ A Streamlit web application that allows users to transform images through five p
 - Interactive dialogs for transformation parameters
 - Caption-based filename generation for downloads
 
+### Deployment
+- Deployed on Streamlit Community Cloud
+- Accessible via URL
+
 ## Installation
 
 1. Clone the repository:
 ```bash
-git clone <repository-url>
+git clone https://github.com/gkuchar/5-prong-image-transformations.git
 cd image_transformation
 ```
 
-2. Create a virtual environment:
+2. Create and acrivate virtual environment:
 ```bash
 python -m venv .venv
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
@@ -61,9 +65,11 @@ streamlit run src/app.py
 ```
 image_transformation/
 ├── src/
-│   └── app.py              # Main application file
-├── requirements.txt        # Python dependencies
-└── README.md              # Project documentation
+│   ├── app.py              # Main application
+│   └── database.py         # New database module
+├── image_collection.db     # SQLite database
+├── requirements.txt
+└── README.md
 ```
 
 ## Dependencies
@@ -91,7 +97,7 @@ image_transformation/
 ## The Collection
 
 The Collection feature allows you to:
-- Save transformed images to a persistent database
+- Save and delete transformed images to a persistent SQLite database
 - Browse previously saved images
 - Organize your transformations with captions
 - Retrieve and continue editing saved images

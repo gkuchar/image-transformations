@@ -2,11 +2,19 @@ import streamlit as st
 import numpy as np
 from PIL import Image
 from io import BytesIO
+from database import ImageDatabase
+
+# Initialize database
+@st.cache_resource
+def get_database():
+    return ImageDatabase()
+
+db = get_database()
 
 # App Title and Description
 st.title(':yellow[5-Prong] Image Transformation')
 st.write(
-    "Upload an image and transform it with five powerful tools: vertical stretch, "
+    "Upload an image or select one from The Collection and transform it with five powerful tools: vertical stretch, "
     "horizontal stretch, 90-degree rotation, vertical flip, and horizontal flip. "
     "Download your transformed image or add it to The Collection when you're done!"
 )
@@ -40,8 +48,9 @@ if "perform_vstretch" not in st.session_state:
 if "current_image" not in st.session_state:
     st.session_state.current_image = None
 
-if "collection" not in st.session_state:
-    st.session_state.collection = []
+if "collection_loaded" not in st.session_state:
+    st.session_state.collection = db.load_all_images()
+    st.session_state.collection_loaded = True
 
 image_slot = st.empty()
 caption_slot = st.empty()
@@ -59,7 +68,7 @@ uploaded_file = st.file_uploader(
 st.divider()
 st.subheader("The Collection")
 
-if len(st.session_state.collection) == 0:
+if len(st.session_state.collection) == 0: # The Collection is empty
     st.info("No images saved yet. Transform an image and click 'Save Image To The Collection' to add it here!")
 else:
     st.write(f"**{len(st.session_state.collection)} image(s) in your collection**")
@@ -68,12 +77,22 @@ else:
     cols = st.columns(3)
     for idx, item in enumerate(st.session_state.collection):
         with cols[idx % 3]:
-            st.image(item["image"], caption=item["caption"], use_container_width=True)
-            if st.button(f"Load '{item['caption']}'", key=f"load_{idx}", use_container_width=True):
-                st.session_state.current_image = item["image"].copy()
-                st.session_state.caption_text = item["caption"]
-                st.success(f"Loaded '{item['caption']}' as current image!")
-                st.rerun()
+            st.image(item["image"], caption=item["caption"], width='stretch')
+            
+            # Create two columns for Load and Delete buttons
+            btn_col1, btn_col2 = st.columns(2)
+            with btn_col1:
+                if st.button(f"Load", key=f"load_{idx}", width='stretch'):
+                    st.session_state.current_image = item["image"].copy()
+                    st.session_state.caption_text = item["caption"]
+                    st.success(f"Loaded '{item['caption']}'!")
+                    st.rerun()
+            with btn_col2:
+                if st.button(f"Delete", key=f"delete_{idx}", width='stretch', type="secondary"):
+                    db.delete_image(item['id'])
+                    st.session_state.collection = db.load_all_images()
+                    st.success(f"Deleted '{item['caption']}'!")
+                    st.rerun()
 
 # Transformation and Save/Download Buttons appear once file uploaded
 if uploaded_file or st.session_state.current_image is not None:
@@ -94,7 +113,7 @@ if uploaded_file or st.session_state.current_image is not None:
         with image_slot:
             st.image(st.session_state.current_image, caption=st.session_state.caption_text)
     with save_col:
-        save_button = st.button('Save Image To The Collection', use_container_width=True)
+        save_button = st.button('Save Image To The Collection', width='stretch')
     with download_col:
         if st.session_state.current_image is not None:
             # Handle different image formats
@@ -114,20 +133,20 @@ if uploaded_file or st.session_state.current_image is not None:
                 data=byte_data,
                 file_name=filename,
                 mime="image/png",
-                use_container_width=True
+                width='stretch'
             )
     with section_divide_slot:
         st.divider()
     with col1:
-        vstretch_button = st.button('Vertical Stretch', use_container_width=True)
+        vstretch_button = st.button('Vertical Stretch', width='stretch')
     with col2:
-        hstretch_button = st.button('Horizontal Stretch', use_container_width=True)
+        hstretch_button = st.button('Horizontal Stretch', width='stretch')
     with col3:
-        rotate_button = st.button('Rotate', use_container_width=True)
+        rotate_button = st.button('Rotate', width='stretch')
     with col4:
-        vflip_button = st.button('Flip Vertically', use_container_width=True)
+        vflip_button = st.button('Flip Vertically', width='stretch')
     with col5:
-        hflip_vbutton = st.button('Flip Horizontally', use_container_width=True)
+        hflip_vbutton = st.button('Flip Horizontally', width='stretch')
 
     # Rerender image on screen with new image and caption
     def update_image():
@@ -201,19 +220,19 @@ if uploaded_file or st.session_state.current_image is not None:
     # Save Button Logic
     if save_button:
         if st.session_state.current_image is not None:
-            # Create a copy of the image to store in collection
-            image_copy = st.session_state.current_image.copy()
-            caption = st.session_state.caption_text if st.session_state.caption_text else f"Image {len(st.session_state.collection) + 1}"
+            # Generate caption if empty
+            caption = st.session_state.caption_text if st.session_state.caption_text else f"Image {db.get_image_count() + 1}"
             
-            # Add to collection
-            st.session_state.collection.append({
-                "image": image_copy,
-                "caption": caption
-            })
+            # Save to database
+            image_id = db.save_image(st.session_state.current_image, caption)
+            
+            # Reload collection from database
+            st.session_state.collection = db.load_all_images()
+            
             st.success(f"Saved '{caption}' to The Collection!")
             st.rerun()
     
-    # Transformarion Button Logic
+    # Transformation Button Logic
     if vstretch_button:
         # Open dialog to get vertical stretch magnitude from user
         get_vstretch_factor()
